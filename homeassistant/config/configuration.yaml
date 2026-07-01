@@ -1,0 +1,113 @@
+homeassistant:
+  name: homewatch
+  unit_system: metric
+  time_zone: America/Santiago
+  currency: CLP
+
+# Interfaz web
+frontend:
+  themes: !include_dir_merge_named themes
+
+# HTTP
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.16.0.0/12
+
+# Logs
+logger:
+  default: warning
+  logs:
+    homeassistant.components.frigate: info
+    homeassistant.components.mqtt: warning
+
+# MQTT — conecta con Mosquitto
+mqtt:
+  broker: mosquitto
+  port: 1883
+  username: frigate
+  password: frigate_pass
+  discovery: true
+
+# Frigate integration via MQTT
+# Instalar desde HACS: Frigate Integration
+# O agregar manualmente:
+# frigate:
+#   host: frigate
+#   port: 5000
+
+# Automatizaciones — notificación push cuando Frigate detecta persona
+automation:
+  - alias: "Alerta persona detectada"
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.payload_json.type == 'new' and
+             trigger.payload_json.after.label == 'person' and
+             trigger.payload_json.after.score > 0.7 }}
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "Persona detectada"
+          message: >
+            Cámara: {{ trigger.payload_json.after.camera }} —
+            confianza {{ (trigger.payload_json.after.score * 100) | round }}%
+          data:
+            image: >
+              http://frigate:5000/api/events/{{ trigger.payload_json.after.id }}/snapshot.jpg
+            tag: frigate-person
+            actions:
+              - action: URI
+                title: "Ver en Frigate"
+                uri: http://frigate:5000
+
+  - alias: "Alerta auto detectado"
+    trigger:
+      - platform: mqtt
+        topic: frigate/events
+    condition:
+      - condition: template
+        value_template: >
+          {{ trigger.payload_json.type == 'new' and
+             trigger.payload_json.after.label in ['car','truck'] and
+             trigger.payload_json.after.score > 0.7 }}
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "Vehículo detectado"
+          message: >
+            {{ trigger.payload_json.after.label | capitalize }} en
+            {{ trigger.payload_json.after.camera }}
+          data:
+            image: >
+              http://frigate:5000/api/events/{{ trigger.payload_json.after.id }}/snapshot.jpg
+            tag: frigate-vehicle
+
+# Panel Lovelace con cámaras de Frigate
+lovelace:
+  mode: yaml
+  resources:
+    - url: /hacsfiles/frigate-hass-card/frigate-hass-card.js
+      type: module
+
+# Historial y logs
+recorder:
+  purge_keep_days: 30
+  exclude:
+    domains:
+      - updater
+
+history:
+  include:
+    domains:
+      - binary_sensor
+      - sensor
+
+logbook:
+  exclude:
+    domains:
+      - sun
+      - weather
