@@ -70,6 +70,21 @@ services:
     networks:
       - homewatch
 
+  # ── Cloudflare Tunnel — acceso remoto seguro sin abrir puertos ───────────────
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - homeassistant
+    networks:
+      - homewatch
+    profiles:
+      - tunnel                  # solo activo cuando CLOUDFLARE_TUNNEL_TOKEN está en .env
+
 volumes:
   mosquitto_data:
   mosquitto_log:

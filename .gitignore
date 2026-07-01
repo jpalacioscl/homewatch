@@ -1,0 +1,3 @@
+# token y secretos — nunca al repositorio
+.env
+mosquitto/config/passwd
