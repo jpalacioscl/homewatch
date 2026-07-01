@@ -117,8 +117,43 @@ else
     _info "Sin acceso remoto por ahora. Puedes agregarlo después ejecutando este mismo script."
 fi
 
-# ── PASO 4: Instalar y arrancar todo ─────────────────────────────────────────
-_titulo "PASO 4/4 — Instalando y arrancando"
+# ── PASO 4: Buscar cámaras en la red ─────────────────────────────────────────
+_titulo "PASO 4/5 — Buscando cámaras en tu red"
+
+# Instalar dependencias de escaneo si faltan
+PYTHON=$(command -v python3 || command -v python || true)
+if [[ -z "$PYTHON" ]]; then
+    warn "Python no encontrado — omitiendo detección de cámaras."
+else
+    for pkg in wsdiscovery onvif-zeep; do
+        $PYTHON -c "import ${pkg//-/_}" 2>/dev/null || \
+            $PYTHON -m pip install "$pkg" -q --break-system-packages 2>/dev/null || true
+    done
+
+    if ! command -v nmap &>/dev/null; then
+        _info "Instalando nmap para escanear la red..."
+        ELEV=$(_elevate)
+        $ELEV apt-get install -y nmap -qq 2>/dev/null || \
+        $ELEV yum install -y nmap -q 2>/dev/null || true
+    fi
+
+    echo ""
+    echo "  ¿Quieres que busque cámaras automáticamente en tu red?"
+    echo "  Necesitas tener las cámaras encendidas y conectadas al WiFi/router."
+    echo ""
+    read -rp "  [S] Sí, buscar cámaras ahora   [N] No, las agrego después  (S/N): " SCAN_CHOICE
+    echo ""
+
+    if [[ "${SCAN_CHOICE,,}" == "s" ]]; then
+        $PYTHON "$SCRIPT_DIR/scripts/scan_cameras.py"
+    else
+        _info "Puedes buscar cámaras después ejecutando:"
+        _info "  python3 scripts/scan_cameras.py"
+    fi
+fi
+
+# ── PASO 5: Instalar y arrancar todo ─────────────────────────────────────────
+_titulo "PASO 5/5 — Instalando y arrancando"
 
 _info "Configurando servidor de mensajes (MQTT)..."
 $DOCKER run --rm \
