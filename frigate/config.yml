@@ -12,9 +12,26 @@ database:
 
 # ── Detector ─────────────────────────────────────────────────────────────────
 detectors:
-  onnx:
-    type: onnx
-    device: cuda
+  cpu1:
+    type: cpu
+    num_threads: 3
+  cpu2:
+    type: cpu
+    num_threads: 3
+  cpu3:
+    type: cpu
+    num_threads: 3
+  cpu4:
+    type: cpu
+    num_threads: 3
+# Para activar GPU NVIDIA descomenta esto y comenta los cpu* de arriba:
+# model:
+#   model_type: yolov9t
+# onnx:
+#   type: onnx
+#   device: cuda
+#   model:
+#     model_type: yolov9t
 
 # ── FFMPEG ───────────────────────────────────────────────────────────────────
 ffmpeg:

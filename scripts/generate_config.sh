@@ -34,10 +34,27 @@ cat >> "$PROJECT_DIR/frigate/config.yml" << 'EOF'
 EOF
 ;;
 onnx_cuda)
-cat >> "$PROJECT_DIR/frigate/config.yml" << 'EOF'
-  onnx:
-    type: onnx
-    device: cuda
+cat >> "$PROJECT_DIR/frigate/config.yml" << EOF
+  cpu1:
+    type: cpu
+    num_threads: 3
+  cpu2:
+    type: cpu
+    num_threads: 3
+  cpu3:
+    type: cpu
+    num_threads: 3
+  cpu4:
+    type: cpu
+    num_threads: 3
+# Para activar GPU NVIDIA descomenta esto y comenta los cpu* de arriba:
+# model:
+#   model_type: yolov9t
+# onnx:
+#   type: onnx
+#   device: cuda
+#   model:
+#     model_type: yolov9t
 EOF
 ;;
 openvino)
