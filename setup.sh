@@ -62,8 +62,29 @@ if ! docker info &>/dev/null 2>&1; then
     command -v pkexec &>/dev/null && DOCKER="pkexec docker" || _error "No se puede conectar a Docker."
 fi
 
-# ── PASO 2: Detectar tu computador ───────────────────────────────────────────
-_titulo "PASO 2/4 — Detectando tu computador"
+# ── PASO 2: NVIDIA Container Toolkit si hay GPU NVIDIA ───────────────────────
+if command -v nvidia-smi &>/dev/null && nvidia-smi &>/dev/null 2>&1; then
+    if ! $DOCKER info 2>/dev/null | grep -q "nvidia"; then
+        _info "GPU NVIDIA detectada — instalando soporte Docker para NVIDIA..."
+        ELEV=$(_elevate)
+        $ELEV sh -c "
+            curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+              | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg 2>/dev/null
+            curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+              | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+              | tee /etc/apt/sources.list.d/nvidia-container-toolkit.list >/dev/null
+            apt-get update -qq && apt-get install -y nvidia-container-toolkit -qq
+            nvidia-ctk runtime configure --runtime=docker >/dev/null
+            systemctl restart docker
+        " 2>/dev/null
+        _ok "NVIDIA Container Toolkit instalado"
+    else
+        _ok "Soporte NVIDIA para Docker ya activo"
+    fi
+fi
+
+# ── PASO 3: Detectar tu computador ───────────────────────────────────────────
+_titulo "PASO 3/5 — Detectando tu computador"
 bash "$SCRIPT_DIR/scripts/generate_config.sh"
 
 # ── PASO 3: Acceso remoto desde tu celular ────────────────────────────────────
