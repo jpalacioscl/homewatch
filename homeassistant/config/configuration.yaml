@@ -1,113 +1,107 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  homewatch — configuración de Home Assistant
+#  Este archivo arranca SIN errores. Lo avanzado (MQTT, alertas, cámaras)
+#  se activa después siguiendo los pasos comentados más abajo.
+# ═══════════════════════════════════════════════════════════════════════════
+
 homeassistant:
   name: homewatch
   unit_system: metric
   time_zone: America/Santiago
   currency: CLP
 
-# Interfaz web
-frontend:
-  themes: !include_dir_merge_named themes
+# Componentes por defecto (interfaz, mapa, energía, etc.)
+default_config:
 
-# HTTP
+# HTTP — necesario para acceso remoto vía Cloudflare Tunnel
 http:
   use_x_forwarded_for: true
   trusted_proxies:
-    - 172.16.0.0/12
+    - 172.16.0.0/12      # red interna de Docker
+    - 127.0.0.1
 
 # Logs
 logger:
   default: warning
   logs:
     homeassistant.components.frigate: info
-    homeassistant.components.mqtt: warning
 
-# MQTT — conecta con Mosquitto
-mqtt:
-  broker: mosquitto
-  port: 1883
-  username: frigate
-  password: frigate_pass
-  discovery: true
-
-# Frigate integration via MQTT
-# Instalar desde HACS: Frigate Integration
-# O agregar manualmente:
-# frigate:
-#   host: frigate
-#   port: 5000
-
-# Automatizaciones — notificación push cuando Frigate detecta persona
-automation:
-  - alias: "Alerta persona detectada"
-    trigger:
-      - platform: mqtt
-        topic: frigate/events
-    condition:
-      - condition: template
-        value_template: >
-          {{ trigger.payload_json.type == 'new' and
-             trigger.payload_json.after.label == 'person' and
-             trigger.payload_json.after.score > 0.7 }}
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Persona detectada"
-          message: >
-            Cámara: {{ trigger.payload_json.after.camera }} —
-            confianza {{ (trigger.payload_json.after.score * 100) | round }}%
-          data:
-            image: >
-              http://frigate:5000/api/events/{{ trigger.payload_json.after.id }}/snapshot.jpg
-            tag: frigate-person
-            actions:
-              - action: URI
-                title: "Ver en Frigate"
-                uri: http://frigate:5000
-
-  - alias: "Alerta auto detectado"
-    trigger:
-      - platform: mqtt
-        topic: frigate/events
-    condition:
-      - condition: template
-        value_template: >
-          {{ trigger.payload_json.type == 'new' and
-             trigger.payload_json.after.label in ['car','truck'] and
-             trigger.payload_json.after.score > 0.7 }}
-    action:
-      - service: notify.mobile_app
-        data:
-          title: "Vehículo detectado"
-          message: >
-            {{ trigger.payload_json.after.label | capitalize }} en
-            {{ trigger.payload_json.after.camera }}
-          data:
-            image: >
-              http://frigate:5000/api/events/{{ trigger.payload_json.after.id }}/snapshot.jpg
-            tag: frigate-vehicle
-
-# Panel Lovelace con cámaras de Frigate
-lovelace:
-  mode: yaml
-  resources:
-    - url: /hacsfiles/frigate-hass-card/frigate-hass-card.js
-      type: module
-
-# Historial y logs
+# Historial de sensores
 recorder:
   purge_keep_days: 30
-  exclude:
-    domains:
-      - updater
 
-history:
-  include:
-    domains:
-      - binary_sensor
-      - sensor
-
-logbook:
-  exclude:
-    domains:
-      - sun
-      - weather
+# ═══════════════════════════════════════════════════════════════════════════
+#  PASO 1 — Conectar MQTT (después de terminar el onboarding)
+# ═══════════════════════════════════════════════════════════════════════════
+#  MQTT ya NO se configura en este archivo. Hazlo desde la interfaz:
+#
+#    Ajustes → Dispositivos y servicios → Añadir integración → MQTT
+#      Broker:   mosquitto
+#      Puerto:   1883
+#      Usuario:  frigate
+#      Password: frigate_pass
+#
+# ═══════════════════════════════════════════════════════════════════════════
+#  PASO 2 — Instalar la integración de Frigate
+# ═══════════════════════════════════════════════════════════════════════════
+#    Ajustes → Dispositivos y servicios → Añadir integración → Frigate
+#      URL: http://frigate:5000
+#
+#    (Si no aparece, instala primero HACS: https://hacs.xyz)
+#
+# ═══════════════════════════════════════════════════════════════════════════
+#  PASO 3 — Instalar la app "Home Assistant" en tu celular
+# ═══════════════════════════════════════════════════════════════════════════
+#    Descárgala de Play Store / App Store, inicia sesión, y quedará
+#    disponible el servicio de notificaciones push (notify.mobile_app_*).
+#
+# ═══════════════════════════════════════════════════════════════════════════
+#  PASO 4 — Activar alertas (descomenta cuando termines los pasos 1-3)
+# ═══════════════════════════════════════════════════════════════════════════
+#  Reemplaza "TU_CELULAR" por el nombre real de tu dispositivo, que verás
+#  en Ajustes → Dispositivos y servicios → Home Assistant Companion.
+#
+# automation:
+#   - alias: "Alerta persona detectada"
+#     trigger:
+#       - platform: mqtt
+#         topic: frigate/events
+#     condition:
+#       - condition: template
+#         value_template: >
+#           {{ trigger.payload_json.type == 'new' and
+#              trigger.payload_json.after.label == 'person' and
+#              trigger.payload_json.after.score > 0.7 }}
+#     action:
+#       - service: notify.mobile_app_TU_CELULAR
+#         data:
+#           title: "Persona detectada"
+#           message: >
+#             Cámara: {{ trigger.payload_json.after.camera }} —
+#             confianza {{ (trigger.payload_json.after.score * 100) | round }}%
+#           data:
+#             image: >
+#               /api/frigate/notifications/{{ trigger.payload_json.after.id }}/snapshot.jpg
+#             tag: frigate-person
+#
+#   - alias: "Alerta vehículo detectado"
+#     trigger:
+#       - platform: mqtt
+#         topic: frigate/events
+#     condition:
+#       - condition: template
+#         value_template: >
+#           {{ trigger.payload_json.type == 'new' and
+#              trigger.payload_json.after.label in ['car','truck'] and
+#              trigger.payload_json.after.score > 0.7 }}
+#     action:
+#       - service: notify.mobile_app_TU_CELULAR
+#         data:
+#           title: "Vehículo detectado"
+#           message: >
+#             {{ trigger.payload_json.after.label | capitalize }} en
+#             {{ trigger.payload_json.after.camera }}
+#           data:
+#             image: >
+#               /api/frigate/notifications/{{ trigger.payload_json.after.id }}/snapshot.jpg
+#             tag: frigate-vehicle
