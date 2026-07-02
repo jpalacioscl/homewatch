@@ -33,11 +33,11 @@ cat >> "$PROJECT_DIR/frigate/config.yml" << 'EOF'
     device: usb
 EOF
 ;;
-tensorrt)
+onnx_cuda)
 cat >> "$PROJECT_DIR/frigate/config.yml" << 'EOF'
-  tensorrt:
-    type: tensorrt
-    device: 0
+  onnx:
+    type: onnx
+    device: cuda
 EOF
 ;;
 openvino)
@@ -108,28 +108,27 @@ objects:
       min_score: 0.6
 
 # ── Cámaras ───────────────────────────────────────────────────────────────────
-# Agrega tus cámaras aquí. Ejemplo con cámara RTSP genérica:
-#
-# cameras:
-#   entrada:
-#     ffmpeg:
-#       inputs:
-#         - path: rtsp://usuario:password@192.168.1.100:554/stream1
-#           roles:
-#             - detect
-#             - record
-#     detect:
-#       width: 1280
-#       height: 720
-#       fps: 5
-#     zones:
-#       zona_entrada:
-#         coordinates: 0,720,640,720,640,0,0,0   # polígono de la zona
-#         objects:
-#           - person
-#
-# Para descubrir cámaras ONVIF en tu red ejecuta:
-#   docker exec frigate frigate onvif-discover
+# Frigate requiere al menos una cámara. Esta es una cámara de ejemplo
+# deshabilitada. Reemplaza los valores con los de tu cámara real,
+# o ejecuta: bash scripts/scan_cameras.py  para detectarlas automáticamente.
+cameras:
+  mi_camara:
+    enabled: false          # cambia a true cuando tengas los datos correctos
+    ffmpeg:
+      inputs:
+        - path: rtsp://usuario:password@192.168.1.100:554/stream1
+          roles:
+            - detect
+            - record
+    detect:
+      width: 1280
+      height: 720
+      fps: 5
+    # zones:
+    #   zona_entrada:
+    #     coordinates: 0,720,1280,720,1280,0,0,0
+    #     objects:
+    #       - person
 
 # ── Interfaz web ──────────────────────────────────────────────────────────────
 ui:
@@ -170,7 +169,7 @@ services:
     container_name: mosquitto
     restart: unless-stopped
     volumes:
-      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - ./mosquitto/config:/mosquitto/config
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
     ports:
@@ -180,7 +179,7 @@ services:
 
   # ── Frigate NVR ─────────────────────────────────────────────────────────────
   frigate:
-    image: ghcr.io/blakeblackshear/frigate:stable
+    image: ghcr.io/blakeblackshear/frigate:stable${FRIGATE_IMAGE_SUFFIX:-}
     container_name: frigate
     restart: unless-stopped
     privileged: true          # needed for hardware access
